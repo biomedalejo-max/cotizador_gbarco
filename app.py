@@ -1,6 +1,7 @@
 import streamlit as st
 import datetime
 import os
+import urllib.parse
 from buscador import buscar_inteligente, descargar_imagen_temporal
 from generador_oferta import generar_documento_oferta, formato_cop
 
@@ -42,29 +43,32 @@ for i, prod in enumerate(st.session_state.productos):
     with col_p:
         prod["precio_unitario"] = st.number_input(f"Precio Unitario (COP sin IVA):", min_value=0.0, value=float(prod["precio_unitario"]), step=500000.0, key=f"prec_{i}")
 
-    # Búsqueda inteligente en cascada (Referencia -> Descripción -> Combinación)
+    # --- ZONA DE ASIGNACIÓN DE IMAGEN ---
+    st.markdown("**📸 Foto del equipo:**")
+    
     col_btn_buscar, col_img_actual = st.columns([1, 1])
     with col_btn_buscar:
-        if st.button(f"🔍 Buscar Imagen Web", key=f"btn_search_{i}"):
+        if st.button(f"🔍 Búsqueda Automática", key=f"btn_search_{i}"):
             if not prod["referencia"].strip() and not prod["descripcion"].strip():
-                st.warning("⚠️ Escribe al menos la Referencia o la Descripción del equipo.")
+                st.warning("⚠️ Escribe primero la Referencia o Descripción.")
             else:
-                with st.spinner("Buscando en la web..."):
-                    fotos, motivo = buscar_inteligente(prod["referencia"], prod["descripcion"], max_resultados=4)
+                with st.spinner("Consultando la web..."):
+                    fotos, motivo, error = buscar_inteligente(prod["referencia"], prod["descripcion"], max_resultados=4)
                     prod["candidatas"] = fotos
                     if fotos:
-                        st.success(f"Fotos encontradas por: {motivo}")
+                        st.success(f"Encontradas por {motivo}")
                     else:
-                        st.info("No se encontraron fotos automáticas. Puedes subir una foto abajo.")
+                        st.info("La búsqueda automática no devolvió fotos. Usa las opciones directas de abajo.")
 
     with col_img_actual:
         if prod["imagen_path"]:
-            st.image(prod["imagen_path"], caption="Imagen asignada", width=120)
+            st.image(prod["imagen_path"], caption="Foto seleccionada", width=120)
         else:
-            st.info("Sin imagen")
+            st.info("Sin foto asignada")
 
+    # Si hay fotos automáticas encontradas
     if prod["candidatas"]:
-        st.write("👉 **Toca la foto correcta para asignarla:**")
+        st.write("👉 **Toca la foto correcta:**")
         cols_fotos = st.columns(len(prod["candidatas"]))
         for idx_foto, url_f in enumerate(prod["candidatas"]):
             with cols_fotos[idx_foto]:
@@ -75,12 +79,34 @@ for i, prod in enumerate(st.session_state.productos):
                         prod["imagen_path"] = ruta_temp
                         st.rerun()
 
-    subida = st.file_uploader(f"O subir foto desde tu teléfono:", type=["png", "jpg", "jpeg"], key=f"upload_{i}")
-    if subida is not None:
-        import tempfile
-        t_file = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-        t_file.write(subida.read())
-        prod["imagen_path"] = t_file.name
+    # Opciones directas (100% confiables)
+    with st.expander("🌐 Opciones alternativas de foto (Google / Enlace / Galería)"):
+        # 1. Botón directo a Google Imágenes
+        termino_buscar = f"{prod['referencia']} {prod['descripcion']}".strip() or "equipo medico"
+        url_google = f"https://www.google.com/search?tbm=isch&q={urllib.parse.quote_plus(termino_buscar)}"
+        st.link_button("👉 Abrir Google Imágenes para este equipo", url_google)
+
+        # 2. Pegar enlace copiado
+        col_url_in, col_url_btn = st.columns([3, 1])
+        with col_url_in:
+            url_copiada = st.text_input("Pegar enlace de imagen copiado:", key=f"url_input_{i}", placeholder="https://...")
+        with col_url_btn:
+            st.write("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+            if st.button("Asignar Link", key=f"btn_link_{i}"):
+                if url_copiada.startswith("http"):
+                    r_tmp = descargar_imagen_temporal(url_copiada)
+                    if r_tmp:
+                        prod["imagen_path"] = r_tmp
+                        st.success("¡Imagen asignada!")
+                        st.rerun()
+
+        # 3. Subir de galería o cámara
+        subida = st.file_uploader(f"O subir foto desde tu teléfono:", type=["png", "jpg", "jpeg"], key=f"upload_{i}")
+        if subida is not None:
+            import tempfile
+            t_file = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+            t_file.write(subida.read())
+            prod["imagen_path"] = t_file.name
 
 col_add, col_del = st.columns(2)
 with col_add:
