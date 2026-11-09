@@ -7,6 +7,17 @@ from generador_oferta import generar_documento_oferta, formato_cop
 
 st.set_page_config(page_title="Cotizador G. Barco S.A.", page_icon="📋", layout="centered")
 
+# --- BARRA LATERAL: CONFIGURACIÓN DE CLAVE GOOGLE ---
+with st.sidebar:
+    st.header("⚙️ Configuración")
+    serper_api_key = st.text_input(
+        "🔑 Clave Google Serper (Gratis):",
+        type="password",
+        help="Pega aquí la clave que copiaste de serper.dev para búsquedas directas en Google."
+    )
+    if not serper_api_key:
+        st.info("💡 Tip: Obtén tu clave gratis en **serper.dev** (2.500 búsquedas sin tarjeta) para ver fotos de equipos reales.")
+
 st.title("📋 Cotizador G. BARCO S.A.")
 st.caption("Generador ágil de ofertas comerciales")
 
@@ -43,22 +54,23 @@ for i, prod in enumerate(st.session_state.productos):
     with col_p:
         prod["precio_unitario"] = st.number_input(f"Precio Unitario (COP sin IVA):", min_value=0.0, value=float(prod["precio_unitario"]), step=500000.0, key=f"prec_{i}")
 
-    # --- ZONA DE ASIGNACIÓN DE IMAGEN ---
-    st.markdown("**📸 Foto del equipo:**")
-    
+    # --- BÚSQUEDA DE IMAGEN ---
     col_btn_buscar, col_img_actual = st.columns([1, 1])
     with col_btn_buscar:
-        if st.button(f"🔍 Búsqueda Automática", key=f"btn_search_{i}"):
+        if st.button(f"🔍 Buscar Fotos Web", key=f"btn_search_{i}"):
             if not prod["referencia"].strip() and not prod["descripcion"].strip():
                 st.warning("⚠️ Escribe primero la Referencia o Descripción.")
             else:
-                with st.spinner("Consultando la web..."):
-                    fotos, motivo, error = buscar_inteligente(prod["referencia"], prod["descripcion"], max_resultados=4)
+                with st.spinner("Buscando fotos reales..."):
+                    fotos, motivo = buscar_inteligente(
+                        prod["referencia"], prod["descripcion"],
+                        api_key=serper_api_key, max_resultados=4
+                    )
                     prod["candidatas"] = fotos
                     if fotos:
-                        st.success(f"Encontradas por {motivo}")
+                        st.success(f"Fotos encontradas vía {motivo}")
                     else:
-                        st.info("La búsqueda automática no devolvió fotos. Usa las opciones directas de abajo.")
+                        st.warning("No se encontraron fotos automáticas. Usa las opciones de abajo.")
 
     with col_img_actual:
         if prod["imagen_path"]:
@@ -66,7 +78,6 @@ for i, prod in enumerate(st.session_state.productos):
         else:
             st.info("Sin foto asignada")
 
-    # Si hay fotos automáticas encontradas
     if prod["candidatas"]:
         st.write("👉 **Toca la foto correcta:**")
         cols_fotos = st.columns(len(prod["candidatas"]))
@@ -79,17 +90,11 @@ for i, prod in enumerate(st.session_state.productos):
                         prod["imagen_path"] = ruta_temp
                         st.rerun()
 
-    # Opciones directas (100% confiables)
-    with st.expander("🌐 Opciones alternativas de foto (Google / Enlace / Galería)"):
-        # 1. Botón directo a Google Imágenes
-        termino_buscar = f"{prod['referencia']} {prod['descripcion']}".strip() or "equipo medico"
-        url_google = f"https://www.google.com/search?tbm=isch&q={urllib.parse.quote_plus(termino_buscar)}"
-        st.link_button("👉 Abrir Google Imágenes para este equipo", url_google)
-
-        # 2. Pegar enlace copiado
+    # Opciones alternativas
+    with st.expander("📁 Opciones adicionales de foto (Subir o Pegar Link)"):
         col_url_in, col_url_btn = st.columns([3, 1])
         with col_url_in:
-            url_copiada = st.text_input("Pegar enlace de imagen copiado:", key=f"url_input_{i}", placeholder="https://...")
+            url_copiada = st.text_input("Pegar enlace directo de imagen:", key=f"url_input_{i}", placeholder="https://...")
         with col_url_btn:
             st.write("<div style='height: 28px;'></div>", unsafe_allow_html=True)
             if st.button("Asignar Link", key=f"btn_link_{i}"):
@@ -100,8 +105,7 @@ for i, prod in enumerate(st.session_state.productos):
                         st.success("¡Imagen asignada!")
                         st.rerun()
 
-        # 3. Subir de galería o cámara
-        subida = st.file_uploader(f"O subir foto desde tu teléfono:", type=["png", "jpg", "jpeg"], key=f"upload_{i}")
+        subida = st.file_uploader(f"Subir desde tu teléfono:", type=["png", "jpg", "jpeg"], key=f"upload_{i}")
         if subida is not None:
             import tempfile
             t_file = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
