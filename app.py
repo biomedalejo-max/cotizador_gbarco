@@ -1,22 +1,15 @@
 import streamlit as st
 import datetime
 import os
-import urllib.parse
-from buscador import buscar_inteligente, descargar_imagen_temporal
+from buscador import buscar_con_serper, descargar_foto_garantizada
 from generador_oferta import generar_documento_oferta, formato_cop
+from generador_pdf import generar_documento_pdf
 
 st.set_page_config(page_title="Cotizador G. Barco S.A.", page_icon="📋", layout="centered")
 
-# --- BARRA LATERAL: CONFIGURACIÓN DE CLAVE GOOGLE ---
 with st.sidebar:
     st.header("⚙️ Configuración")
-    serper_api_key = st.text_input(
-        "🔑 Clave Google Serper (Gratis):",
-        type="password",
-        help="Pega aquí la clave que copiaste de serper.dev para búsquedas directas en Google."
-    )
-    if not serper_api_key:
-        st.info("💡 Tip: Obtén tu clave gratis en **serper.dev** (2.500 búsquedas sin tarjeta) para ver fotos de equipos reales.")
+    serper_api_key = st.text_input("🔑 Clave Google Serper:", type="password")
 
 st.title("📋 Cotizador G. BARCO S.A.")
 st.caption("Generador ágil de ofertas comerciales")
@@ -54,63 +47,50 @@ for i, prod in enumerate(st.session_state.productos):
     with col_p:
         prod["precio_unitario"] = st.number_input(f"Precio Unitario (COP sin IVA):", min_value=0.0, value=float(prod["precio_unitario"]), step=500000.0, key=f"prec_{i}")
 
-    # --- BÚSQUEDA DE IMAGEN ---
+    # Búsqueda
     col_btn_buscar, col_img_actual = st.columns([1, 1])
     with col_btn_buscar:
         if st.button(f"🔍 Buscar Fotos Web", key=f"btn_search_{i}"):
-            if not prod["referencia"].strip() and not prod["descripcion"].strip():
+            termino = f"{prod['referencia']} {prod['descripcion']}".strip()
+            if not termino:
                 st.warning("⚠️ Escribe primero la Referencia o Descripción.")
             else:
-                with st.spinner("Buscando fotos reales..."):
-                    fotos, motivo = buscar_inteligente(
-                        prod["referencia"], prod["descripcion"],
-                        api_key=serper_api_key, max_resultados=4
-                    )
+                with st.spinner("Buscando en Google Imágenes..."):
+                    fotos = buscar_con_serper(termino, serper_api_key, max_resultados=4)
                     prod["candidatas"] = fotos
-                    if fotos:
-                        st.success(f"Fotos encontradas vía {motivo}")
-                    else:
-                        st.warning("No se encontraron fotos automáticas. Usa las opciones de abajo.")
+                    if not fotos:
+                        st.warning("No se encontraron fotos. Verifica la clave Serper o sube una foto manual.")
 
     with col_img_actual:
-        if prod["imagen_path"]:
-            st.image(prod["imagen_path"], caption="Foto seleccionada", width=120)
+        if prod["imagen_path"] and os.path.exists(prod["imagen_path"]):
+            st.image(prod["imagen_path"], caption="✅ Foto asignada con éxito", width=120)
         else:
             st.info("Sin foto asignada")
 
+    # Galería interactiva
     if prod["candidatas"]:
-        st.write("👉 **Toca la foto correcta:**")
+        st.write("👉 **Toca 'Usar' en la foto correcta:**")
         cols_fotos = st.columns(len(prod["candidatas"]))
-        for idx_foto, url_f in enumerate(prod["candidatas"]):
+        for idx_foto, foto_item in enumerate(prod["candidatas"]):
+            url_vista = foto_item.get("backup") or foto_item.get("original")
             with cols_fotos[idx_foto]:
-                st.image(url_f, use_container_width=True)
+                st.image(url_vista, use_container_width=True)
                 if st.button("Usar", key=f"sel_{i}_{idx_foto}"):
-                    ruta_temp = descargar_imagen_temporal(url_f)
-                    if ruta_temp:
-                        prod["imagen_path"] = ruta_temp
-                        st.rerun()
+                    with st.spinner("Guardando foto en el documento..."):
+                        ruta_guardada = descargar_foto_garantizada(foto_item, indice_item=i)
+                        if ruta_guardada:
+                            prod["imagen_path"] = ruta_guardada
+                            st.success("¡Foto guardada!")
+                            st.rerun()
 
-    # Opciones alternativas
-    with st.expander("📁 Opciones adicionales de foto (Subir o Pegar Link)"):
-        col_url_in, col_url_btn = st.columns([3, 1])
-        with col_url_in:
-            url_copiada = st.text_input("Pegar enlace directo de imagen:", key=f"url_input_{i}", placeholder="https://...")
-        with col_url_btn:
-            st.write("<div style='height: 28px;'></div>", unsafe_allow_html=True)
-            if st.button("Asignar Link", key=f"btn_link_{i}"):
-                if url_copiada.startswith("http"):
-                    r_tmp = descargar_imagen_temporal(url_copiada)
-                    if r_tmp:
-                        prod["imagen_path"] = r_tmp
-                        st.success("¡Imagen asignada!")
-                        st.rerun()
-
-        subida = st.file_uploader(f"Subir desde tu teléfono:", type=["png", "jpg", "jpeg"], key=f"upload_{i}")
+    with st.expander("📁 Subir foto manualmente desde la galería"):
+        subida = st.file_uploader(f"Seleccionar archivo:", type=["png", "jpg", "jpeg"], key=f"upload_{i}")
         if subida is not None:
-            import tempfile
-            t_file = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-            t_file.write(subida.read())
-            prod["imagen_path"] = t_file.name
+            r_manual = f"foto_manual_{i}.jpg"
+            with open(r_manual, "wb") as f:
+                f.write(subida.read())
+            prod["imagen_path"] = os.path.abspath(r_manual)
+            st.rerun()
 
 col_add, col_del = st.columns(2)
 with col_add:
@@ -145,23 +125,55 @@ with st.expander("⚙️ Condiciones comerciales"):
     forma_pago = st.text_input("Forma de Pago:", value="90 días.")
 
 st.markdown("<br>", unsafe_allow_html=True)
+
+# GENERACIÓN DE DOCUMENTOS
 if st.button("📄 GENERAR COTIZACIÓN FINAL", type="primary", use_container_width=True):
     if not cliente.strip():
         st.error("Por favor ingresa al menos el Nombre del Cliente.")
     else:
-        datos = {
-            "numero_oferta": numero_oferta,
-            "ciudad_fecha": ciudad_fecha,
-            "cliente": cliente,
-            "nit": nit,
-            "contacto": contacto,
-            "ciudad_cliente": ciudad_cliente,
-            "validez": validez,
-            "entrega": entrega,
-            "forma_pago": forma_pago
-        }
-        nom = f"Oferta_{numero_oferta}_{cliente.replace(' ', '_')}.docx"
-        generar_documento_oferta(datos, st.session_state.productos, nom)
-        with open(nom, "rb") as f:
+        with st.spinner("Creando PDF y Word oficiales..."):
+            datos = {
+                "numero_oferta": numero_oferta,
+                "ciudad_fecha": ciudad_fecha,
+                "cliente": cliente,
+                "nit": nit,
+                "contacto": contacto,
+                "ciudad_cliente": ciudad_cliente,
+                "validez": validez,
+                "entrega": entrega,
+                "forma_pago": forma_pago
+            }
+            nombre_base = f"Oferta_{numero_oferta}_{cliente.replace(' ', '_')}"
+            nom_docx = f"{nombre_base}.docx"
+            nom_pdf = f"{nombre_base}.pdf"
+            
+            # Generar ambos documentos
+            generar_documento_oferta(datos, st.session_state.productos, nom_docx)
+            generar_documento_pdf(datos, st.session_state.productos, nom_pdf)
+            
             st.success("✅ ¡Cotización generada exitosamente!")
-            st.download_button("📥 Descargar Documento Word (.docx)", f, file_name=nom, use_container_width=True)
+            
+            col_d1, col_d2 = st.columns(2)
+            
+            # Botón directo a PDF (Rojo destacado)
+            with col_d1:
+                with open(nom_pdf, "rb") as f_pdf:
+                    st.download_button(
+                        label="📕 Descargar PDF Oficial",
+                        data=f_pdf,
+                        file_name=nom_pdf,
+                        mime="application/pdf",
+                        type="primary",
+                        use_container_width=True
+                    )
+            
+            # Botón Word
+            with col_d2:
+                with open(nom_docx, "rb") as f_word:
+                    st.download_button(
+                        label="📄 Descargar Word (.docx)",
+                        data=f_word,
+                        file_name=nom_docx,
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        use_container_width=True
+                    )
