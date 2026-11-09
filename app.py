@@ -42,7 +42,7 @@ for i, prod in enumerate(st.session_state.productos):
     with col_p:
         prod["precio_unitario"] = st.number_input(f"Precio Unitario (COP sin IVA):", min_value=0.0, value=float(prod["precio_unitario"]), step=500000.0, key=f"prec_{i}")
 
-    # Búsqueda inteligente en cascada
+    # Búsqueda inteligente en cascada (Referencia -> Descripción -> Combinación)
     col_btn_buscar, col_img_actual = st.columns([1, 1])
     with col_btn_buscar:
         if st.button(f"🔍 Buscar Imagen Web", key=f"btn_search_{i}"):
@@ -120,13 +120,18 @@ if st.button("📄 GENERAR COTIZACIÓN FINAL", type="primary", use_container_wid
         st.error("Por favor ingresa al menos el Nombre del Cliente.")
     else:
         datos = {
-            "numero_oferta": numero_oferta, "ciudad_fecha": ciudad_fecha,
-            "cliente": cliente, "nit": nit, "contacto": contacto,
-            "ciudad_cliente": ciudad_cliente, "validez": validez,
-            "entrega": entrega, "forma_pago": delivery_days := forma_pago
+            "numero_oferta": numero_oferta,
+            "ciudad_fecha": ciudad_fecha,
+            "cliente": cliente,
+            "nit": nit,
+            "contacto": contacto,
+            "ciudad_cliente": ciudad_cliente,
+            "validez": validez,
+            "entrega": entrega,
+            "forma_pago": forma_pago
         }
         nom = f"Oferta_{numero_oferta}_{cliente.replace(' ', '_')}.docx"
         generar_documento_oferta(datos, st.session_state.productos, nom)
         with open(nom, "rb") as f:
-            st.success("✅ ¡Cotización generada!")
+            st.success("✅ ¡Cotización generada exitosamente!")
             st.download_button("📥 Descargar Documento Word (.docx)", f, file_name=nom, use_container_width=True)
