@@ -54,4 +54,42 @@ def buscar_inteligente(referencia: str, descripcion: str, max_resultados: int = 
     Retorna: (lista_de_urls, motivo_exito)
     """
     ref = (referencia or "").strip()
-    desc = (de
+    desc = (descripcion or "").strip()
+
+    # 1. Buscar primero por Referencia
+    if ref:
+        fotos = consultar_motor_imagenes(f"{ref} equipo medico", max_resultados)
+        if not fotos:
+            fotos = consultar_motor_imagenes(ref, max_resultados)
+        if fotos:
+            return fotos, f"Referencia ('{ref}')"
+
+    # 2. Si no encontró por Referencia, buscar por Descripción
+    if desc:
+        # Tomar las primeras palabras clave principales de la descripción
+        palabras_clave = " ".join(desc.split()[:7])
+        fotos = consultar_motor_imagenes(palabras_clave, max_resultados)
+        if fotos:
+            return fotos, f"Descripción ('{palabras_clave}')"
+
+    # 3. Intento combinado si ambos tienen datos
+    if ref and desc:
+        combo = f"{ref} {desc.split()[0]}"
+        fotos = consultar_motor_imagenes(combo, max_resultados)
+        if fotos:
+            return fotos, f"Combinación ('{combo}')"
+
+    return [], "Sin resultados"
+
+def descargar_imagen_temporal(url_imagen: str) -> str:
+    """Descarga la imagen para meterla al documento Word."""
+    try:
+        resp = requests.get(url_imagen, headers=HEADERS, timeout=8)
+        if resp.status_code == 200:
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+            temp_file.write(resp.content)
+            temp_file.close()
+            return temp_file.name
+    except Exception as e:
+        print(f"Error al descargar imagen: {e}")
+    return None
