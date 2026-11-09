@@ -1,7 +1,7 @@
 import streamlit as st
 import datetime
 import os
-from buscador import buscar_imagenes_producto, descargar_imagen_temporal
+from buscador import buscar_inteligente, descargar_imagen_temporal
 from generador_oferta import generar_documento_oferta, formato_cop
 
 st.set_page_config(page_title="Cotizador G. Barco S.A.", page_icon="📋", layout="centered")
@@ -42,12 +42,20 @@ for i, prod in enumerate(st.session_state.productos):
     with col_p:
         prod["precio_unitario"] = st.number_input(f"Precio Unitario (COP sin IVA):", min_value=0.0, value=float(prod["precio_unitario"]), step=500000.0, key=f"prec_{i}")
 
+    # Búsqueda inteligente en cascada
     col_btn_buscar, col_img_actual = st.columns([1, 1])
     with col_btn_buscar:
         if st.button(f"🔍 Buscar Imagen Web", key=f"btn_search_{i}"):
-            termino = f"{prod['referencia']} equipo medico"
-            with st.spinner("Buscando en la web..."):
-                prod["candidatas"] = buscar_imagenes_producto(termino, max_resultados=4)
+            if not prod["referencia"].strip() and not prod["descripcion"].strip():
+                st.warning("⚠️ Escribe al menos la Referencia o la Descripción del equipo.")
+            else:
+                with st.spinner("Buscando en la web..."):
+                    fotos, motivo = buscar_inteligente(prod["referencia"], prod["descripcion"], max_resultados=4)
+                    prod["candidatas"] = fotos
+                    if fotos:
+                        st.success(f"Fotos encontradas por: {motivo}")
+                    else:
+                        st.info("No se encontraron fotos automáticas. Puedes subir una foto abajo.")
 
     with col_img_actual:
         if prod["imagen_path"]:
@@ -56,7 +64,7 @@ for i, prod in enumerate(st.session_state.productos):
             st.info("Sin imagen")
 
     if prod["candidatas"]:
-        st.write("👉 **Toca la foto correcta:**")
+        st.write("👉 **Toca la foto correcta para asignarla:**")
         cols_fotos = st.columns(len(prod["candidatas"]))
         for idx_foto, url_f in enumerate(prod["candidatas"]):
             with cols_fotos[idx_foto]:
@@ -67,7 +75,7 @@ for i, prod in enumerate(st.session_state.productos):
                         prod["imagen_path"] = ruta_temp
                         st.rerun()
 
-    subida = st.file_uploader(f"O subir desde tu teléfono:", type=["png", "jpg", "jpeg"], key=f"upload_{i}")
+    subida = st.file_uploader(f"O subir foto desde tu teléfono:", type=["png", "jpg", "jpeg"], key=f"upload_{i}")
     if subida is not None:
         import tempfile
         t_file = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
@@ -115,7 +123,7 @@ if st.button("📄 GENERAR COTIZACIÓN FINAL", type="primary", use_container_wid
             "numero_oferta": numero_oferta, "ciudad_fecha": ciudad_fecha,
             "cliente": cliente, "nit": nit, "contacto": contacto,
             "ciudad_cliente": ciudad_cliente, "validez": validez,
-            "entrega": entrega, "forma_pago": forma_pago
+            "entrega": entrega, "forma_pago": delivery_days := forma_pago
         }
         nom = f"Oferta_{numero_oferta}_{cliente.replace(' ', '_')}.docx"
         generar_documento_oferta(datos, st.session_state.productos, nom)
