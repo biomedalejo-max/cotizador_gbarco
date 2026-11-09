@@ -1,72 +1,96 @@
 import os
 import requests
 import tempfile
-import asyncio
-
-# --- REPARACIÓN VITAL PARA STREAMLIT CLOUD ---
-# Activa el bucle de eventos que Streamlit apaga en sus servidores
-try:
-    asyncio.get_event_loop()
-except RuntimeError:
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-# ---------------------------------------------
-
-from duckduckgo_search import DDGS
+import urllib.parse
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    "User-Agent": "CotizadorBarco/1.0"
 }
 
-def buscar_inteligente(referencia: str, descripcion: str, max_resultados: int = 4) -> tuple:
-    """Busca imágenes automáticamente reparando el hilo de Streamlit."""
+def buscar_con_serper(termino: str, api_key: str, max_resultados: int = 4) -> list:
+    """Busca en Google Imágenes usando la API de Serper (100% infalible en la nube)."""
+    if not api_key:
+        return []
+    
+    url = "https://google.serper.dev/images"
+    payload = {
+        "q": termino.strip(),
+        "gl": "co",  # Región Colombia
+        "hl": "es",  # Idioma español
+        "num": max_resultados
+    }
+    headers = {
+        "X-API-KEY": api_key.strip(),
+        "Content-Type": "application/json"
+    }
+    
+    try:
+        resp = requests.post(url, json=payload, headers=headers, timeout=6)
+        if resp.status_code == 200:
+            datos = resp.json()
+            # Extraer las URLs de las fotos de Google
+            return [img.get("imageUrl") for img in datos.get("images", []) if img.get("imageUrl")]
+    except Exception as e:
+        print(f"Error Serper: {e}")
+        
+    return []
+
+def buscar_en_wikimedia(termino: str, max_resultados: int = 4) -> list:
+    """Buscador público de respaldo libre de bloqueos."""
+    try:
+        q = urllib.parse.quote_plus(termino)
+        url = f"https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch={q}&gsrlimit={max_resultados}&prop=imageinfo&iiprop=url&format=json"
+        resp = requests.get(url, headers=HEADERS, timeout=5)
+        if resp.status_code == 200:
+            data = resp.json()
+            paginas = data.get("query", {}).get("pages", {})
+            urls = []
+            for p in paginas.values():
+                info = p.get("imageinfo", [{}])[0]
+                u = info.get("url")
+                if u and not u.endswith(".svg"):
+                    urls.append(u)
+            return urls
+    except Exception:
+        pass
+    return []
+
+def buscar_inteligente(referencia: str, descripcion: str, api_key: str = "", max_resultados: int = 4) -> tuple:
     ref = (referencia or "").strip()
     desc = (descripcion or "").strip()
     
-    # Lista de términos a probar en orden
-    terminos_a_probar = []
-    if ref:
-        terminos_a_probar.append((ref, f"Referencia '{ref}'"))
-    if desc:
-        clave_desc = " ".join(desc.split()[:6])
-        terminos_a_probar.append((clave_desc, f"Descripción '{clave_desc}'"))
+    # Armar los términos ordenados
+    terminos = []
     if ref and desc:
-        terminos_a_probar.append((f"{ref} {desc.split()[0]}", "Combinación"))
+        terminos.append(f"{ref} {desc}")
+    if ref:
+        terminos.append(ref)
+    if desc:
+        terminos.append(desc)
 
-    # Asegurar el bucle en cada intento
-    try:
-        asyncio.set_event_loop(asyncio.new_event_loop())
-    except Exception:
-        pass
+    for term in terminos:
+        # 1. Si pusiste la clave de Serper (Google Imágenes real)
+        if api_key:
+            fotos = buscar_con_serper(term, api_key, max_resultados)
+            if fotos:
+                return fotos, f"Google ('{term[:25]}...')"
+        
+        # 2. Respaldo sin clave
+        fotos = buscar_en_wikimedia(term, max_resultados)
+        if fotos:
+            return fotos, f"Buscador libre ('{term[:25]}...')"
 
-    for termino, motivo in terminos_a_probar:
-        try:
-            with DDGS() as ddgs:
-                resultados = list(ddgs.images(
-                    keywords=termino,
-                    max_results=max_resultados,
-                    safesearch='moderate'
-                ))
-                urls = [r.get('image') for r in resultados if r.get('image')]
-                if urls:
-                    return urls, motivo, None
-        except Exception as error_busqueda:
-            # Si falla un término, prueba el siguiente
-            continue
-
-    return [], "Sin resultados", "Los servidores de búsqueda no respondieron."
+    return [], "Sin resultados"
 
 def descargar_imagen_temporal(url_imagen: str) -> str:
-    """Descarga cualquier imagen de internet y la prepara para el Word."""
-    if not url_imagen or not url_imagen.startswith("http"):
-        return None
+    """Descarga la imagen seleccionada y la prepara para el documento Word."""
     try:
-        resp = requests.get(url_imagen, headers=HEADERS, timeout=10)
+        resp = requests.get(url_imagen, headers={"User-Agent": "Mozilla/5.0"}, timeout=8)
         if resp.status_code == 200:
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
             temp_file.write(resp.content)
             temp_file.close()
             return temp_file.name
     except Exception as e:
-        print(f"Error al descargar imagen: {e}")
+        print(f"Error al descargar foto: {e}")
     return None
