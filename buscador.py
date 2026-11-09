@@ -1,90 +1,67 @@
 import os
-import re
-import urllib.parse
 import requests
 import tempfile
+import asyncio
+
+# --- REPARACIÓN VITAL PARA STREAMLIT CLOUD ---
+# Activa el bucle de eventos que Streamlit apaga en sus servidores
+try:
+    asyncio.get_event_loop()
+except RuntimeError:
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+# ---------------------------------------------
+
+from duckduckgo_search import DDGS
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-    "Accept-Language": "es-ES,es;q=0.9,en;q=0.8"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 }
 
-def consultar_motor_imagenes(termino: str, max_resultados: int = 4) -> list:
-    """Busca en el motor web sin bloqueos de servidor."""
-    if not termino or not termino.strip():
-        return []
-    
-    urls = []
-    try:
-        q_enc = urllib.parse.quote_plus(termino.strip())
-        url = f"https://images.search.yahoo.com/search/images?p={q_enc}"
-        resp = requests.get(url, headers=HEADERS, timeout=7)
-        
-        if resp.status_code == 200:
-            # 1. Extraer enlaces originales de imágenes
-            enlaces_directos = re.findall(r'imgurl=([a-zA-Z0-9%_\-\.\/\:]+)', resp.text)
-            for raw in enlaces_directos:
-                limpio = urllib.parse.unquote(raw)
-                if limpio.startswith("http") and not limpio.lower().endswith('.svg'):
-                    if limpio not in urls:
-                        urls.append(limpio)
-                if len(urls) >= max_resultados:
-                    break
-            
-            # 2. Si las fotos originales fallan, extraer miniaturas CDN de alta disponibilidad
-            if len(urls) < max_resultados:
-                miniaturas = re.findall(r'(https://tse\d\.mm\.bing\.net/th\?id=[a-zA-Z0-9_\-\.]+)', resp.text)
-                for m in miniaturas:
-                    if m not in urls:
-                        urls.append(m)
-                    if len(urls) >= max_resultados:
-                        break
-    except Exception as e:
-        print(f"Error consultando motor: {e}")
-        
-    return urls
-
 def buscar_inteligente(referencia: str, descripcion: str, max_resultados: int = 4) -> tuple:
-    """
-    REGLA EN CASCADA:
-    1. Si hay Referencia, busca primero por Referencia.
-    2. Si no encuentra nada, busca por Descripción.
-    3. Si ambas están presentes, prueba combinación.
-    Retorna: (lista_de_urls, motivo_exito)
-    """
+    """Busca imágenes automáticamente reparando el hilo de Streamlit."""
     ref = (referencia or "").strip()
     desc = (descripcion or "").strip()
-
-    # 1. Buscar primero por Referencia
+    
+    # Lista de términos a probar en orden
+    terminos_a_probar = []
     if ref:
-        fotos = consultar_motor_imagenes(f"{ref} equipo medico", max_resultados)
-        if not fotos:
-            fotos = consultar_motor_imagenes(ref, max_resultados)
-        if fotos:
-            return fotos, f"Referencia ('{ref}')"
-
-    # 2. Si no encontró por Referencia, buscar por Descripción
+        terminos_a_probar.append((ref, f"Referencia '{ref}'"))
     if desc:
-        # Tomar las primeras palabras clave principales de la descripción
-        palabras_clave = " ".join(desc.split()[:7])
-        fotos = consultar_motor_imagenes(palabras_clave, max_resultados)
-        if fotos:
-            return fotos, f"Descripción ('{palabras_clave}')"
-
-    # 3. Intento combinado si ambos tienen datos
+        clave_desc = " ".join(desc.split()[:6])
+        terminos_a_probar.append((clave_desc, f"Descripción '{clave_desc}'"))
     if ref and desc:
-        combo = f"{ref} {desc.split()[0]}"
-        fotos = consultar_motor_imagenes(combo, max_resultados)
-        if fotos:
-            return fotos, f"Combinación ('{combo}')"
+        terminos_a_probar.append((f"{ref} {desc.split()[0]}", "Combinación"))
 
-    return [], "Sin resultados"
+    # Asegurar el bucle en cada intento
+    try:
+        asyncio.set_event_loop(asyncio.new_event_loop())
+    except Exception:
+        pass
+
+    for termino, motivo in terminos_a_probar:
+        try:
+            with DDGS() as ddgs:
+                resultados = list(ddgs.images(
+                    keywords=termino,
+                    max_results=max_resultados,
+                    safesearch='moderate'
+                ))
+                urls = [r.get('image') for r in resultados if r.get('image')]
+                if urls:
+                    return urls, motivo, None
+        except Exception as error_busqueda:
+            # Si falla un término, prueba el siguiente
+            continue
+
+    return [], "Sin resultados", "Los servidores de búsqueda no respondieron."
 
 def descargar_imagen_temporal(url_imagen: str) -> str:
-    """Descarga la imagen para meterla al documento Word."""
+    """Descarga cualquier imagen de internet y la prepara para el Word."""
+    if not url_imagen or not url_imagen.startswith("http"):
+        return None
     try:
-        resp = requests.get(url_imagen, headers=HEADERS, timeout=8)
+        resp = requests.get(url_imagen, headers=HEADERS, timeout=10)
         if resp.status_code == 200:
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
             temp_file.write(resp.content)
