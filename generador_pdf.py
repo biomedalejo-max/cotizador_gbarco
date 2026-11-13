@@ -120,7 +120,7 @@ def generar_documento_pdf(
     
     fec = datos_oferta.get("ciudad_fecha", "Manizales")
     story.append(Paragraph(fec, style_fecha))
-    story.append(Spacer(1, 28))
+    story.append(Spacer(1, 35))
 
     # 2. CLIENTE
     cli = datos_oferta.get('cliente', '').upper()
