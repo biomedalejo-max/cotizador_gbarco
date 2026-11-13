@@ -95,4 +95,166 @@ def generar_documento_pdf(
         'CT',
         fontName='Helvetica-Bold',
         fontSize=8.5,
-        lead
+        leading=12,
+        textColor=colors.HexColor('#003366')
+    )
+    style_clausula_p = ParagraphStyle(
+        'CP',
+        fontName='Helvetica',
+        fontSize=8,
+        leading=11
+    )
+    style_firma = ParagraphStyle(
+        'Firma',
+        fontName='Helvetica',
+        fontSize=8.5,
+        leading=12
+    )
+
+    story = []
+
+    # 1. ENCABEZADO
+    num_of = datos_oferta.get('numero_oferta', 'BMZL201449')
+    story.append(Paragraph(f"Oferta: {num_of}", style_oferta))
+    story.append(Spacer(1, 10))
+    
+    fec = datos_oferta.get("ciudad_fecha", "Manizales")
+    story.append(Paragraph(fec, style_fecha))
+    story.append(Spacer(1, 28))
+
+    # 2. CLIENTE
+    cli = datos_oferta.get('cliente', '').upper()
+    nit = datos_oferta.get('nit', '')
+    con = datos_oferta.get('contacto', '')
+    ciu = datos_oferta.get('ciudad_cliente', 'La Ciudad')
+    
+    texto_cliente = f"""
+    <b>SEÑORES:</b><br/>
+    <b>{cli}</b><br/>
+    Nit: {nit}<br/>
+    {con}<br/>
+    {ciu}
+    """
+    story.append(Paragraph(texto_cliente, style_cliente))
+    story.append(Spacer(1, 22))
+
+    saludo_txt = (
+        "Estimado Cliente,<br/>"
+        "Atendiendo a su amable solicitud, en <b>G. BARCO S.A.</b> "
+        "nos complace presentar a su consideración nuestra propuesta "
+        "comercial para la adquisición de los siguientes equipos:"
+    )
+    story.append(Paragraph(saludo_txt, style_saludo))
+    story.append(Spacer(1, 12))
+
+    # 3. TABLA DE PRODUCTOS
+    story.append(Paragraph("<b>Descripción de los productos:</b>", style_clausula_t))
+    story.append(Spacer(1, 6))
+
+    encabezados = [
+        Paragraph("Imagen", style_th),
+        Paragraph("Ítem", style_th),
+        Paragraph("Referencia", style_th),
+        Paragraph("Descripción", style_th),
+        Paragraph("Cant.", style_th),
+        Paragraph("P. Unitario", style_th),
+        Paragraph("IVA 19%", style_th),
+        Paragraph("Subtotal", style_th),
+        Paragraph("Garantía", style_th),
+        Paragraph("Visitas", style_th)
+    ]
+    
+    data_tabla = [encabezados]
+    subtotal_gral = 0.0
+    iva_gral = 0.0
+
+    for idx, prod in enumerate(productos, start=1):
+        cant = prod.get("cantidad", 1)
+        p_u = prod.get("precio_unitario", 0.0)
+        sub = cant * p_u
+        iva = sub * 0.19
+        subtotal_gral += sub
+        iva_gral += iva
+
+        img_celda = Paragraph("[Sin foto]", style_td_c)
+        img_p = prod.get("imagen_path")
+        if img_p and os.path.exists(img_p):
+            try:
+                img_celda = RLImage(img_p, width=48, height=44)
+            except Exception:
+                pass
+
+        fila = [
+            img_celda,
+            Paragraph(str(idx), style_td_c),
+            Paragraph(str(prod.get("referencia", "")), style_td_c),
+            Paragraph(str(prod.get("descripcion", "")), style_td),
+            Paragraph(str(cant), style_td_c),
+            Paragraph(formato_cop(p_u), style_td_c),
+            Paragraph(formato_cop(iva), style_td_c),
+            Paragraph(formato_cop(sub), style_td_c),
+            Paragraph(str(prod.get("garantia", "12 meses")), style_td_c),
+            Paragraph(str(prod.get("visitas", "2/año")), style_td_c)
+        ]
+        data_tabla.append(fila)
+
+    col_widths = [54, 24, 70, 142, 28, 64, 58, 66, 48, 40]
+    tabla_pdf = Table(data_tabla, colWidths=col_widths, repeatRows=1)
+    tabla_pdf.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#003366')),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#B0C4DE')),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(tabla_pdf)
+    story.append(Spacer(1, 14))
+
+    # 4. RESUMEN
+    tot_gral = subtotal_gral + iva_gral
+    data_resumen = [
+        [Paragraph("<b>SUBTOTAL:</b>", style_td), Paragraph(formato_cop(subtotal_gral), style_td_c)],
+        [Paragraph("<b>IVA (19%):</b>", style_td), Paragraph(formato_cop(iva_gral), style_td_c)],
+        [Paragraph("<b>TOTAL OFERTA:</b>", style_td), Paragraph(f"<b>{formato_cop(tot_gral)}</b>", style_td_bold)]
+    ]
+    t_resumen = Table(data_resumen, colWidths=[100, 95], hAlign='RIGHT')
+    t_resumen.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CCCCCC')),
+        ('BACKGROUND', (0, 2), (-1, 2), colors.HexColor('#EBF3FB')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+    ]))
+    story.append(t_resumen)
+    story.append(Spacer(1, 16))
+
+    # 5. CONDICIONES COMERCIALES
+    condiciones = [
+        ("MONEDA / VALIDEZ", datos_oferta.get("validez", "Pesos colombianos / Hasta 30 días.")),
+        ("PLAZO DE ENTREGA", datos_oferta.get("entrega", "Cinco (5) días salvo previa venta.")),
+        ("FORMA DE PAGO", datos_oferta.get("forma_pago", "90 días.")),
+        ("GARANTÍA", "Doce (12) meses contra defectos de fabricación exclusivamente."),
+        ("INSTALACIÓN", "Los equipos se entregarán instalados y funcionando en la ciudad de compra."),
+        ("MANTENIMIENTO", "Dos (2) visitas de mantenimiento preventivo durante la garantía."),
+        ("CAPACITACIÓN", "Ilimitada durante la vida útil del equipo.")
+    ]
+
+    for tit, cont in condiciones:
+        story.append(Paragraph(f"<b>{tit}:</b> {cont}", style_clausula_p))
+        story.append(Spacer(1, 4))
+
+    # 6. FIRMA
+    story.append(Spacer(1, 28))
+    
+    bloque_firma = []
+    bloque_firma.append(Paragraph("Cordialmente,", style_firma))
+    bloque_firma.append(Spacer(1, 35))
+    bloque_firma.append(Paragraph("________________________________________________", style_firma))
+    bloque_firma.append(Paragraph("<b>ALEJANDRO VALENCIA VARGAS</b>", style_firma))
+    bloque_firma.append(Paragraph("Representante de Ventas 360", style_firma))
+    bloque_firma.append(Paragraph("<b>G. BARCO S.A.</b> | Cel: 3117662264", style_firma))
+    
+    story.append(KeepTogether(bloque_firma))
+
+    doc.build(story)
