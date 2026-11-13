@@ -26,9 +26,13 @@ with st.expander("📌 1. Datos Generales de la Oferta", expanded=True):
     with col_num:
         numero_oferta = st.text_input("N° de Oferta (Manual):", value="BMZL201449")
     with col_fecha:
-        fecha_hoy = datetime.date.today().strftime("%d de %B de %Y")
-        ciudad_fecha = st.text_input("Ciudad y Fecha:", value=f"Manizales, {fecha_hoy}")
-
+        meses = {
+            1: "enero", 2: "febrero", 3: "marzo", 4: "abril", 5: "mayo", 6: "junio",
+            7: "julio", 8: "agosto", 9: "septiembre", 10: "octubre", 11: "noviembre", 12: "diciembre"
+        }
+        hoy = datetime.date.today()
+        fecha_espanol = f"{hoy.day} de {meses[hoy.month]} de {hoy.year}"
+        ciudad_fecha = st.text_input("Ciudad y Fecha:", value=f"Manizales, {fecha_espanol}")
     cliente = st.text_input("Cliente / Razón Social:", placeholder="Ej. SERVICIOS ESPECIALES DE SALUD")
     nit = st.text_input("NIT:", placeholder="Ej. 8908075915")
     contacto = st.text_input("Contacto / Atención a:", placeholder="Ej. Dra. Vanessa Villamil")
