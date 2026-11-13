@@ -33,8 +33,8 @@ def generar_documento_pdf(
         pagesize=letter,
         leftMargin=24,
         rightMargin=24,
-        topMargin=26,
-        bottomMargin=26
+        topMargin=24,
+        bottomMargin=24
     )
 
     estilos = getSampleStyleSheet()
@@ -46,11 +46,11 @@ def generar_documento_pdf(
         textColor=colors.HexColor('#003366'),
         alignment=TA_RIGHT
     )
-    style_fecha = ParagraphStyle(
-        'Fecha',
+    style_fecha_r = ParagraphStyle(
+        'FechaR',
         fontName='Helvetica',
         fontSize=9.5,
-        alignment=TA_LEFT
+        alignment=TA_RIGHT
     )
     style_cliente = ParagraphStyle(
         'Cliente',
@@ -113,14 +113,59 @@ def generar_documento_pdf(
 
     story = []
 
-    # 1. ENCABEZADO
-    num_of = datos_oferta.get('numero_oferta', 'BMZL201449')
-    story.append(Paragraph(f"Oferta: {num_of}", style_oferta))
-    story.append(Spacer(1, 10))
+    # 1. ENCABEZADO CON LOGO Y NÚMERO DE OFERTA
+    num_of = datos_oferta.get(
+        'numero_oferta',
+        'BMZL201449'
+    )
+    fec = datos_oferta.get(
+        "ciudad_fecha",
+        "Manizales"
+    )
+
+    # Elemento del logo (si existe logo.png)
+    if os.path.exists("logo.png"):
+        img_logo = RLImage(
+            "logo.png",
+            width=95,
+            height=60
+        )
+    else:
+        img_logo = Paragraph(
+            "<b>G. BARCO S.A.</b>",
+            style_clausula_t
+        )
+
+    # Bloque derecho (Oferta y Fecha)
+    bloque_derecho = [
+        Paragraph(
+            f"Oferta: {num_of}",
+            style_oferta
+        ),
+        Spacer(1, 4),
+        Paragraph(
+            fec,
+            style_fecha_r
+        )
+    ]
+
+    # Tabla de 2 columnas para el encabezado
+    header_data = [[img_logo, bloque_derecho]]
+    header_table = Table(
+        header_data,
+        colWidths=[280, 284]
+    )
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+    ]))
+    story.append(header_table)
     
-    fec = datos_oferta.get("ciudad_fecha", "Manizales")
-    story.append(Paragraph(fec, style_fecha))
-    story.append(Spacer(1, 35))
+    # Espacio elegante entre encabezado y cliente
+    story.append(Spacer(1, 22))
 
     # 2. CLIENTE
     cli = datos_oferta.get('cliente', '').upper()
@@ -136,7 +181,7 @@ def generar_documento_pdf(
     {ciu}
     """
     story.append(Paragraph(texto_cliente, style_cliente))
-    story.append(Spacer(1, 22))
+    story.append(Spacer(1, 18))
 
     saludo_txt = (
         "Estimado Cliente,<br/>"
@@ -148,7 +193,10 @@ def generar_documento_pdf(
     story.append(Spacer(1, 12))
 
     # 3. TABLA DE PRODUCTOS
-    story.append(Paragraph("<b>Descripción de los productos:</b>", style_clausula_t))
+    story.append(Paragraph(
+        "<b>Descripción de los productos:</b>",
+        style_clausula_t
+    ))
     story.append(Spacer(1, 6))
 
     encabezados = [
@@ -180,7 +228,11 @@ def generar_documento_pdf(
         img_p = prod.get("imagen_path")
         if img_p and os.path.exists(img_p):
             try:
-                img_celda = RLImage(img_p, width=48, height=44)
+                img_celda = RLImage(
+                    img_p,
+                    width=48,
+                    height=44
+                )
             except Exception:
                 pass
 
@@ -214,9 +266,18 @@ def generar_documento_pdf(
     # 4. RESUMEN
     tot_gral = subtotal_gral + iva_gral
     data_resumen = [
-        [Paragraph("<b>SUBTOTAL:</b>", style_td), Paragraph(formato_cop(subtotal_gral), style_td_c)],
-        [Paragraph("<b>IVA (19%):</b>", style_td), Paragraph(formato_cop(iva_gral), style_td_c)],
-        [Paragraph("<b>TOTAL OFERTA:</b>", style_td), Paragraph(f"<b>{formato_cop(tot_gral)}</b>", style_td_bold)]
+        [
+            Paragraph("<b>SUBTOTAL:</b>", style_td),
+            Paragraph(formato_cop(subtotal_gral), style_td_c)
+        ],
+        [
+            Paragraph("<b>IVA (19%):</b>", style_td),
+            Paragraph(formato_cop(iva_gral), style_td_c)
+        ],
+        [
+            Paragraph("<b>TOTAL OFERTA:</b>", style_td),
+            Paragraph(f"<b>{formato_cop(tot_gral)}</b>", style_td_bold)
+        ]
     ]
     t_resumen = Table(data_resumen, colWidths=[100, 95], hAlign='RIGHT')
     t_resumen.setStyle(TableStyle([
@@ -245,7 +306,7 @@ def generar_documento_pdf(
         story.append(Spacer(1, 4))
 
     # 6. FIRMA
-    story.append(Spacer(1, 28))
+    story.append(Spacer(1, 26))
     
     bloque_firma = []
     bloque_firma.append(Paragraph("Cordialmente,", style_firma))
