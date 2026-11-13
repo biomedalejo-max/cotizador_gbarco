@@ -37,12 +37,14 @@ def generar_documento_pdf(datos_oferta: dict, productos: list, ruta_pdf: str):
     style_firma = ParagraphStyle('Firma', fontName='Helvetica', fontSize=8.5, leading=12)
 
     story = []
-
-    # 1. ENCABEZADO
+# 1. ENCABEZADO
     story.append(Paragraph(f"Oferta: {datos_oferta.get('numero_oferta', 'BMZL201449')}", style_oferta))
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 10))  # <-- Espacio entre Oferta y Fecha
     story.append(Paragraph(datos_oferta.get("ciudad_fecha", "Manizales"), style_fecha))
-    story.append(Spacer(1, 12))
+    
+    # 👇 1. ESPACIO ENTRE LA FECHA Y LOS DATOS DEL CLIENTE:
+    # Cámbialo de 12 a 25 (o 30 si quieres aún más aire)
+    story.append(Spacer(1, 25))
 
     # 2. CLIENTE
     texto_cliente = f"""
@@ -51,6 +53,12 @@ def generar_documento_pdf(datos_oferta: dict, productos: list, ruta_pdf: str):
     Nit: {datos_oferta.get('nit', '')}<br/>
     {datos_oferta.get('contacto', '')}<br/>
     {datos_oferta.get('ciudad_cliente', 'La Ciudad')}
+    """
+    story.append(Paragraph(texto_cliente, style_cliente))
+
+    # 👇 2. ESPACIO ENTRE DATOS DEL CLIENTE Y EL SIGUIENTE BLOQUE (Saludo):
+    # Cámbialo de 10 a 20 (o 25 si lo quieres más separado)
+    story.append(Spacer(1, 20))
     """
     story.append(Paragraph(texto_cliente, style_cliente))
     story.append(Spacer(1, 10))
