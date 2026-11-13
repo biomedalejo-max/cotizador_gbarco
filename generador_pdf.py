@@ -44,7 +44,7 @@ def generar_documento_pdf(datos_oferta: dict, productos: list, ruta_pdf: str):
     
     # 👇 1. ESPACIO ENTRE LA FECHA Y LOS DATOS DEL CLIENTE:
     # Cámbialo de 12 a 25 (o 30 si quieres aún más aire)
-    story.append(Spacer(1, 25))
+    story.append(Spacer(1, 35))
 
     # 2. CLIENTE
     texto_cliente = f"""
@@ -58,10 +58,10 @@ def generar_documento_pdf(datos_oferta: dict, productos: list, ruta_pdf: str):
 
     # 👇 2. ESPACIO ENTRE DATOS DEL CLIENTE Y EL SIGUIENTE BLOQUE (Saludo):
     # Cámbialo de 10 a 20 (o 25 si lo quieres más separado)
-    story.append(Spacer(1, 20))
+    story.append(Spacer(1, 35))
     """
     story.append(Paragraph(texto_cliente, style_cliente))
-    story.append(Spacer(1, 10))
+    
 
     story.append(Paragraph(
         "Estimado Cliente,<br/>"
