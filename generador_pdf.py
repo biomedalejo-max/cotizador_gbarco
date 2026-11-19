@@ -113,7 +113,7 @@ def generar_documento_pdf(
 
     story = []
 
-    # 1. ENCABEZADO CON LOGO Y NÚMERO DE OFERTA
+    # 1. ENCABEZADO CON LOGO
     num_of = datos_oferta.get(
         'numero_oferta',
         'BMZL201449'
@@ -123,7 +123,6 @@ def generar_documento_pdf(
         "Manizales"
     )
 
-    # Elemento del logo (si existe logo.png)
     if os.path.exists("logo.png"):
         img_logo = RLImage(
             "logo.png",
@@ -136,7 +135,6 @@ def generar_documento_pdf(
             style_clausula_t
         )
 
-    # Bloque derecho (Oferta y Fecha)
     bloque_derecho = [
         Paragraph(
             f"Oferta: {num_of}",
@@ -149,10 +147,8 @@ def generar_documento_pdf(
         )
     ]
 
-    # Tabla de 2 columnas para el encabezado
-    header_data = [[img_logo, bloque_derecho]]
     header_table = Table(
-        header_data,
+        [[img_logo, bloque_derecho]],
         colWidths=[280, 284]
     )
     header_table.setStyle(TableStyle([
@@ -163,8 +159,6 @@ def generar_documento_pdf(
         ('TOPPADDING', (0, 0), (-1, -1), 0),
     ]))
     story.append(header_table)
-    
-    # Espacio elegante entre encabezado y cliente
     story.append(Spacer(1, 22))
 
     # 2. CLIENTE
@@ -236,6 +230,10 @@ def generar_documento_pdf(
             except Exception:
                 pass
 
+        # Lee la garantía y visitas editadas de cada producto
+        gar_prod = str(prod.get("garantia", "12 meses"))
+        vis_prod = str(prod.get("visitas", "2/año"))
+
         fila = [
             img_celda,
             Paragraph(str(idx), style_td_c),
@@ -245,8 +243,8 @@ def generar_documento_pdf(
             Paragraph(formato_cop(p_u), style_td_c),
             Paragraph(formato_cop(iva), style_td_c),
             Paragraph(formato_cop(sub), style_td_c),
-            Paragraph(str(prod.get("garantia", "12 meses")), style_td_c),
-            Paragraph(str(prod.get("visitas", "2/año")), style_td_c)
+            Paragraph(gar_prod, style_td_c),
+            Paragraph(vis_prod, style_td_c)
         ]
         data_tabla.append(fila)
 
@@ -290,12 +288,29 @@ def generar_documento_pdf(
     story.append(t_resumen)
     story.append(Spacer(1, 16))
 
-    # 5. CONDICIONES COMERCIALES
+    # 5. CONDICIONES COMERCIALES (100% DINÁMICAS)
+    val_txt = datos_oferta.get(
+        "validez",
+        "Pesos colombianos / Hasta 30 días."
+    )
+    ent_txt = datos_oferta.get(
+        "entrega",
+        "Cinco (5) días salvo previa venta."
+    )
+    pag_txt = datos_oferta.get(
+        "forma_pago",
+        "90 días."
+    )
+    gar_gen = datos_oferta.get(
+        "garantia_texto",
+        "Doce (12) meses contra defectos de fabricación exclusivamente."
+    )
+
     condiciones = [
-        ("MONEDA / VALIDEZ", datos_oferta.get("validez", "Pesos colombianos / Hasta 30 días.")),
-        ("PLAZO DE ENTREGA", datos_oferta.get("entrega", "Cinco (5) días salvo previa venta.")),
-        ("FORMA DE PAGO", datos_oferta.get("forma_pago", "90 días.")),
-        ("GARANTÍA", "Doce (12) meses contra defectos de fabricación exclusivamente."),
+        ("MONEDA / VALIDEZ", val_txt),
+        ("PLAZO DE ENTREGA", ent_txt),
+        ("FORMA DE PAGO", pag_txt),
+        ("GARANTÍA", gar_gen),
         ("INSTALACIÓN", "Los equipos se entregarán instalados y funcionando en la ciudad de compra."),
         ("MANTENIMIENTO", "Dos (2) visitas de mantenimiento preventivo durante la garantía."),
         ("CAPACITACIÓN", "Ilimitada durante la vida útil del equipo.")
