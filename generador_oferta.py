@@ -152,9 +152,9 @@ def generar_documento_oferta(datos_oferta: dict, productos: list, ruta_salida: s
         ("MONEDA DE NEGOCIACIÓN / VALIDEZ DE LA OFERTA", datos_oferta.get("validez", "Pesos colombianos / Hasta 30 días.")),
         ("PLAZO DE ENTREGA", datos_oferta.get("entrega", "Cinco (5) días salvo previa venta.")),
         ("FORMA DE PAGO", datos_oferta.get("forma_pago", "90 días.")),
-        ("GARANTÍA", "Doce (12) meses contra defectos de fabricación exclusivamente."),
+        ("GARANTÍA", "Veinticuatro (24) meses contra defectos de fabricación exclusivamente."),
         ("INSTALACIÓN", "Los equipos se entregarán instalados y funcionando a entera satisfacción en la ciudad de compra."),
-        ("MANTENIMIENTO PREVENTIVO", "Dos (2) visitas anuales durante los 12 meses de garantía."),
+        ("MANTENIMIENTO PREVENTIVO", "Dos (2) visitas anuales durante los 24 meses de garantía."),
         ("MANTENIMIENTO CORRECTIVO", "Ilimitado durante la vigencia de la garantía."),
         ("ENTRENAMIENTO Y CAPACITACIÓN", "Ilimitada durante la vida útil del equipo.")
     ]
