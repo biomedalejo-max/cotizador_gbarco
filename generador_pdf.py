@@ -230,7 +230,6 @@ def generar_documento_pdf(
             except Exception:
                 pass
 
-        # Lee la garantía y visitas editadas de cada producto
         gar_prod = str(prod.get("garantia", "12 meses"))
         vis_prod = str(prod.get("visitas", "2/año"))
 
@@ -288,7 +287,7 @@ def generar_documento_pdf(
     story.append(t_resumen)
     story.append(Spacer(1, 16))
 
-    # 5. CONDICIONES COMERCIALES (100% DINÁMICAS)
+    # 5. CONDICIONES COMERCIALES (100% DEFINIDAS POR EL USUARIO)
     val_txt = datos_oferta.get(
         "validez",
         "Pesos colombianos / Hasta 30 días."
@@ -301,18 +300,26 @@ def generar_documento_pdf(
         "forma_pago",
         "90 días."
     )
-    gar_gen = datos_oferta.get(
+    ins_txt = datos_oferta.get(
+        "instalacion",
+        "Los equipos se entregarán instalados y funcionando en la ciudad de compra."
+    )
+    gar_txt = datos_oferta.get(
         "garantia_texto",
         "Doce (12) meses contra defectos de fabricación exclusivamente."
+    )
+    mant_txt = datos_oferta.get(
+        "mantenimiento_texto",
+        "Dos (2) visitas anuales de mantenimiento preventivo durante la garantía."
     )
 
     condiciones = [
         ("MONEDA / VALIDEZ", val_txt),
         ("PLAZO DE ENTREGA", ent_txt),
         ("FORMA DE PAGO", pag_txt),
-        ("GARANTÍA", gar_gen),
-        ("INSTALACIÓN", "Los equipos se entregarán instalados y funcionando en la ciudad de compra."),
-        ("MANTENIMIENTO", "Dos (2) visitas de mantenimiento preventivo durante la garantía."),
+        ("GARANTÍA", gar_txt),
+        ("INSTALACIÓN", ins_txt),
+        ("MANTENIMIENTO", mant_txt),
         ("CAPACITACIÓN", "Ilimitada durante la vida útil del equipo.")
     ]
 
