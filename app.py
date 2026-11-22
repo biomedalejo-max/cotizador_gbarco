@@ -115,11 +115,11 @@ for i, prod in enumerate(st.session_state.productos):
             key=f"prec_{i}"
         )
 
-    # 👇 CASILLAS DE GARANTÍA Y VISITAS POR EQUIPO
+    # Casillas de Garantía y Visitas por equipo
     col_g, col_v = st.columns(2)
     with col_g:
         prod["garantia"] = st.text_input(
-            f"Garantía del Ítem #{i+1}:",
+            f"Garantía Ítem #{i+1}:",
             value=prod.get("garantia", "12 meses"),
             key=f"gar_{i}"
         )
@@ -224,33 +224,57 @@ c1.metric("Subtotal", formato_cop(subtotal))
 c2.metric("IVA 19%", formato_cop(iva))
 c3.metric("Total Oferta", formato_cop(total))
 
-# 👇 4. CONDICIONES COMERCIALES (VISIBLES Y EDITABLES DIRECTAMENTE)
+# 4. CONDICIONES COMERCIALES (100% DINÁMICAS Y EDITABLES)
 st.markdown("---")
 st.markdown("### 📋 4. Condiciones Comerciales")
 
-col_ent, col_gar_gen = st.columns(2)
+# Sugerencias dinámicas según los ítems ingresados
+lista_gar = [p.get("garantia", "12 meses") for p in st.session_state.productos]
+lista_vis = [p.get("visitas", "2 visitas/año") for p in st.session_state.productos]
+
+if len(st.session_state.productos) == 1:
+    sug_gar = f"{lista_gar[0]} contra defectos de fabricación exclusivamente. No ampara consumibles."
+    sug_mant = f"Durante la garantía de {lista_gar[0]} se realizarán {lista_vis[0]} de mantenimiento preventivo. Mantenimiento correctivo ilimitado."
+else:
+    sug_gar = "Según lo especificado por ítem: " + " / ".join([f"Ítem {k+1}: {g}" for k, g in enumerate(lista_gar)]) + " contra defectos de fabricación exclusivamente."
+    sug_mant = "Mantenimiento preventivo según ítem: " + " / ".join([f"Ítem {k+1}: {v}" for k, v in enumerate(lista_vis)]) + ". Mantenimiento correctivo ilimitado durante la vigencia de la garantía."
+
+col_ent, col_val = st.columns(2)
 with col_ent:
     entrega = st.text_input(
         "⏱️ Plazo de Entrega:",
         value="Cinco (5) días salvo previa venta."
     )
-with col_gar_gen:
-    garantia_texto = st.text_input(
-        "🛡️ Cláusula de Garantía (General):",
-        value="Doce (12) meses contra defectos de fabricación exclusivamente."
-    )
-
-col_val, col_pag = st.columns(2)
 with col_val:
     validez = st.text_input(
         "📅 Validez de la Oferta:",
         value="Pesos colombianos / Hasta 30 días."
     )
+
+col_pag, col_ins = st.columns(2)
 with col_pag:
     forma_pago = st.text_input(
         "💳 Forma de Pago:",
         value="90 días."
     )
+with col_ins:
+    instalacion_texto = st.text_input(
+        "🛠️ Instalación:",
+        value="Los equipos se entregarán instalados y funcionando en la ciudad de compra."
+    )
+
+# Áreas de texto editables para Garantía y Mantenimiento
+garantia_texto = st.text_area(
+    "🛡️ Texto de Garantía (editable):",
+    value=sug_gar,
+    height=75
+)
+
+mantenimiento_texto = st.text_area(
+    "🔧 Texto de Mantenimiento (editable):",
+    value=sug_mant,
+    height=75
+)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -270,7 +294,9 @@ if st.button("📄 GENERAR COTIZACIÓN FINAL", type="primary", use_container_wid
                 "validez": validez,
                 "entrega": entrega,
                 "forma_pago": forma_pago,
-                "garantia_texto": garantia_texto
+                "instalacion": instalacion_texto,
+                "garantia_texto": garantia_texto,
+                "mantenimiento_texto": mantenimiento_texto
             }
             nombre_base = f"Oferta_{numero_oferta}_{cliente.replace(' ', '_')}"
             nom_docx = f"{nombre_base}.docx"
