@@ -115,7 +115,6 @@ for i, prod in enumerate(st.session_state.productos):
             key=f"prec_{i}"
         )
 
-    # Casillas de Garantía y Visitas por equipo
     col_g, col_v = st.columns(2)
     with col_g:
         prod["garantia"] = st.text_input(
@@ -130,7 +129,6 @@ for i, prod in enumerate(st.session_state.productos):
             key=f"vis_{i}"
         )
 
-    # Búsqueda de foto
     col_btn, col_img = st.columns([1, 1])
     with col_btn:
         if st.button(f"🔍 Buscar Fotos Web", key=f"btn_search_{i}"):
@@ -224,20 +222,13 @@ c1.metric("Subtotal", formato_cop(subtotal))
 c2.metric("IVA 19%", formato_cop(iva))
 c3.metric("Total Oferta", formato_cop(total))
 
-# 4. CONDICIONES COMERCIALES (100% DINÁMICAS Y EDITABLES)
+# 4. CONDICIONES COMERCIALES
 st.markdown("---")
 st.markdown("### 📋 4. Condiciones Comerciales")
 
-# Sugerencias dinámicas según los ítems ingresados
-lista_gar = [p.get("garantia", "12 meses") for p in st.session_state.productos]
-lista_vis = [p.get("visitas", "2 visitas/año") for p in st.session_state.productos]
-
-if len(st.session_state.productos) == 1:
-    sug_gar = f"{lista_gar[0]} contra defectos de fabricación exclusivamente. No ampara consumibles."
-    sug_mant = f"Durante la garantía de {lista_gar[0]} se realizarán {lista_vis[0]} de mantenimiento preventivo. Mantenimiento correctivo ilimitado."
-else:
-    sug_gar = "Según lo especificado por ítem: " + " / ".join([f"Ítem {k+1}: {g}" for k, g in enumerate(lista_gar)]) + " contra defectos de fabricación exclusivamente."
-    sug_mant = "Mantenimiento preventivo según ítem: " + " / ".join([f"Ítem {k+1}: {v}" for k, v in enumerate(lista_vis)]) + ". Mantenimiento correctivo ilimitado durante la vigencia de la garantía."
+# Toma la garantía y visitas del primer equipo como base
+gar_base = st.session_state.productos[0].get("garantia", "12 meses")
+vis_base = st.session_state.productos[0].get("visitas", "2 visitas/año")
 
 col_ent, col_val = st.columns(2)
 with col_ent:
@@ -260,20 +251,18 @@ with col_pag:
 with col_ins:
     instalacion_texto = st.text_input(
         "🛠️ Instalación:",
-        value="Los equipos se entregarán instalados y funcionando en la ciudad de compra."
+        value="Los equipos se entregarán instalados y funcionando a entera satisfacción en la ciudad de compra."
     )
 
-# Áreas de texto editables para Garantía y Mantenimiento
-garantia_texto = st.text_area(
-    "🛡️ Texto de Garantía (editable):",
-    value=sug_gar,
-    height=75
+# Casillas abiertas para Garantía y Mantenimiento
+garantia_texto = st.text_input(
+    "🛡️ Texto de Garantía:",
+    value=f"{gar_base.capitalize()} contra defectos de fabricación exclusivamente."
 )
 
-mantenimiento_texto = st.text_area(
-    "🔧 Texto de Mantenimiento (editable):",
-    value=sug_mant,
-    height=75
+mantenimiento_preventivo = st.text_input(
+    "🔧 Texto de Mantenimiento Preventivo:",
+    value=f"{vis_base.capitalize()} durante los {gar_base} de garantía."
 )
 
 st.markdown("<br>", unsafe_allow_html=True)
@@ -296,7 +285,7 @@ if st.button("📄 GENERAR COTIZACIÓN FINAL", type="primary", use_container_wid
                 "forma_pago": forma_pago,
                 "instalacion": instalacion_texto,
                 "garantia_texto": garantia_texto,
-                "mantenimiento_texto": mantenimiento_texto
+                "mantenimiento_preventivo": mantenimiento_preventivo
             }
             nombre_base = f"Oferta_{numero_oferta}_{cliente.replace(' ', '_')}"
             nom_docx = f"{nombre_base}.docx"
